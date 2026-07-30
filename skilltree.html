@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KAIZEN 2026 // ÁRBOL DE HABILIDADES</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Share+Tech+Mono&display=swap');
+
+:root{
+  --bg-deep:#04070a;
+  --bg-panel:#0a1420;
+  --bg-panel-2:#0e1b2b;
+  --metal-1:#1b2530;
+  --metal-2:#0c1219;
+  --cyan:#00fff2;
+  --magenta:#ff00c8;
+  --acid:#c6ff00;
+  --text-dim:#7fa3b0;
+  --text-bright:#e8feff;
+  --line-dim: rgba(120,180,200,0.12);
+}
+
+*{box-sizing:border-box;}
+
+html,body{
+  margin:0; padding:0; height:100%;
+  background:var(--bg-deep);
+  color:var(--text-bright);
+  font-family:'Share Tech Mono', monospace;
+  overflow:hidden;
+}
+
+/* ---------- background texture ---------- */
+.bg-layer{
+  position:fixed; inset:0; z-index:0; pointer-events:none;
+}
+.bg-grid{
+  background-image:
+    linear-gradient(var(--line-dim) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line-dim) 1px, transparent 1px);
+  background-size:42px 42px;
+  background-position:center;
+  opacity:0.5;
+  animation: gridDrift 30s linear infinite;
+}
+@keyframes gridDrift{
+  0%{background-position:0 0, 0 0;}
+  100%{background-position:0 500px, 500px 0;}
+}
+.bg-vignette{
+  background:radial-gradient(ellipse at center, transparent 0%, rgba(0,0,0,0.55) 75%, rgba(0,0,0,0.85) 100%),
+             linear-gradient(180deg, rgba(0,255,242,0.03), transparent 30%, transparent 70%, rgba(255,0,200,0.04));
+}
+.bg-scan{
+  background:repeating-linear-gradient(
+    0deg, rgba(255,255,255,0.025) 0px, rgba(255,255,255,0.025) 1px,
+    transparent 2px, transparent 3px
+  );
+  mix-blend-mode:overlay;
+}
+.bg-scanbar{
+  position:absolute; left:0; right:0; height:120px;
+  background:linear-gradient(180deg, transparent, rgba(0,255,242,0.05), transparent);
+  animation:scanbar 7s linear infinite;
+}
+@keyframes scanbar{
+  0%{top:-120px;} 100%{top:110%;}
+}
+
+/* ---------- HUD ---------- */
+.hud{
+  position:fixed; top:0; left:0; right:0; z-index:20;
+  padding:22px 34px 14px;
+  background:linear-gradient(180deg, rgba(4,7,10,0.92), rgba(4,7,10,0));
+  pointer-events:none;
+}
+.hud-title{
+  font-family:'Orbitron', sans-serif;
+  font-weight:900;
+  font-size:clamp(22px,3.4vw,34px);
+  letter-spacing:2px;
+  color:var(--text-bright);
+  position:relative;
+  display:inline-block;
+  text-shadow:0 0 8px rgba(0,255,242,0.6);
+}
+.hud-title::before,.hud-title::after{
+  content:attr(data-text);
+  position:absolute; left:0; top:0; width:100%; height:100%;
+  overflow:hidden; background:transparent;
+}
+.hud-title::before{
+  color:var(--magenta);
+  clip-path:inset(0 0 55% 0);
+  animation:glitchTop 4.5s infinite linear;
+  text-shadow:none;
+}
+.hud-title::after{
+  color:var(--cyan);
+  clip-path:inset(55% 0 0 0);
+  animation:glitchBot 4.5s infinite linear;
+  text-shadow:none;
+}
+@keyframes glitchTop{
+  0%,90%,100%{transform:translate(0,0);}
+  91%{transform:translate(-3px,-1px);}
+  93%{transform:translate(2px,1px);}
+  95%{transform:translate(-1px,0);}
+}
+@keyframes glitchBot{
+  0%,90%,100%{transform:translate(0,0);}
+  92%{transform:translate(3px,1px);}
+  94%{transform:translate(-2px,-1px);}
+  96%{transform:translate(1px,0);}
+}
+.hud-sub{
+  margin-top:6px;
+  font-size:12px;
+  letter-spacing:2px;
+  color:var(--text-dim);
+  text-transform:uppercase;
+}
+.hud-sub b{color:var(--acid); font-weight:normal;}
+.hud-status{
+  margin-top:10px;
+  font-size:11px;
+  color:var(--cyan);
+  letter-spacing:1px;
+  opacity:0.85;
+}
+.hud-status .blink{animation:blink 1.1s steps(1) infinite;}
+@keyframes blink{50%{opacity:0;}}
+
+/* ---------- scroll canvas ---------- */
+.viewport{
+  position:absolute; inset:0; z-index:5;
+  overflow:auto;
+  padding-top:150px;
+  padding-bottom:60px;
+  cursor:grab;
+}
+.viewport.dragging{cursor:grabbing; user-select:none;}
+.viewport::-webkit-scrollbar{height:10px; width:10px;}
+.viewport::-webkit-scrollbar-track{background:var(--bg-panel);}
+.viewport::-webkit-scrollbar-thumb{
+  background:linear-gradient(90deg, var(--cyan), var(--magenta));
+  border-radius:6px;
+}
+
+#tree-canvas{
+  position:relative;
+  margin:0 auto;
+}
+
+/* ---------- circuit lines ---------- */
+.circuit-line{
+  fill:none;
+  stroke:var(--line-color, var(--cyan));
+  stroke-width:1.4;
+  opacity:0.28;
+}
+.circuit-flow{
+  fill:none;
+  stroke:var(--line-color, var(--cyan));
+  stroke-width:2;
+  filter:drop-shadow(0 0 4px var(--line-color, var(--cyan)));
+  stroke-dasharray:6 14;
+  animation:flow 1.6s linear infinite;
+  opacity:0.9;
+}
+@keyframes flow{ to{ stroke-dashoffset:-40; } }
+.via{
+  fill:var(--bg-panel);
+  stroke:var(--line-color, var(--cyan));
+  stroke-width:1.5;
+}
+.via-core{
+  fill:var(--line-color, var(--cyan));
+  opacity:0.9;
+}
+
+/* ---------- nodes ---------- */
+.node{
+  position:absolute;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:2px;
+  background:linear-gradient(160deg, var(--bg-panel-2), var(--metal-2));
+  border:1px solid rgba(150,200,210,0.25);
+  border-radius:6px;
+  color:var(--text-bright);
+  font-family:'Share Tech Mono', monospace;
+  cursor:pointer;
+  text-decoration:none;
+  padding:6px 10px;
+  z-index:6;
+  transition:transform .18s ease, box-shadow .25s ease, border-color .25s ease, background .25s ease;
+  clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);
+}
+.node .tag{
+  font-size:10px; letter-spacing:2px; color:var(--node-color);
+  opacity:0.85;
+}
+.node .label{
+  font-family:'Orbitron', sans-serif; font-weight:700;
+  font-size:12.5px; letter-spacing:1px; text-align:center; line-height:1.15;
+  position:relative;
+}
+.node.tier2 .label{font-size:10.5px; font-weight:500;}
+.node.root .label{font-size:17px;}
+
+.node.color-cyan{ --node-color:var(--cyan); }
+.node.color-magenta{ --node-color:var(--magenta); }
+.node.color-acid{ --node-color:var(--acid); }
+
+.node:hover, .node:focus-visible{
+  transform:translateY(-3px) scale(1.045);
+  border-color:var(--node-color);
+  background:linear-gradient(160deg, rgba(20,32,44,0.95), var(--metal-2));
+  box-shadow:0 0 10px var(--node-color), 0 0 26px var(--node-color), inset 0 0 12px rgba(255,255,255,0.05);
+  outline:none;
+}
+.node:hover .label, .node:focus-visible .label{
+  text-shadow:0 0 6px var(--node-color);
+}
+.node:active{ transform:translateY(-1px) scale(0.98); }
+
+.node.root{
+  border-color:rgba(255,255,255,0.4);
+  background:radial-gradient(circle at 50% 30%, rgba(0,255,242,0.12), var(--bg-panel-2) 70%);
+  animation:corePulse 3.4s ease-in-out infinite;
+  cursor:default;
+}
+.node.root:hover{ transform:none; box-shadow:0 0 18px rgba(0,255,242,0.5), 0 0 40px rgba(255,0,200,0.25); }
+@keyframes corePulse{
+  0%,100%{ box-shadow:0 0 10px rgba(0,255,242,0.35), 0 0 24px rgba(255,0,200,0.18); }
+  50%{ box-shadow:0 0 18px rgba(0,255,242,0.6), 0 0 42px rgba(255,0,200,0.3); }
+}
+
+/* scanline sweep across each node */
+.node .sweep{
+  position:absolute; left:0; top:-100%; width:100%; height:100%;
+  background:linear-gradient(180deg, transparent, rgba(255,255,255,0.18), transparent);
+  pointer-events:none;
+}
+.node:hover .sweep{ animation:sweep 0.9s ease; }
+@keyframes sweep{ to{ top:110%; } }
+
+/* tooltip */
+.tooltip{
+  position:absolute;
+  left:50%; transform:translateX(-50%) translateY(6px);
+  bottom:calc(100% + 10px);
+  width:220px;
+  background:rgba(6,12,18,0.96);
+  border:1px solid var(--node-color);
+  border-radius:4px;
+  padding:9px 11px;
+  font-size:11px;
+  line-height:1.4;
+  color:var(--text-dim);
+  box-shadow:0 0 16px rgba(0,0,0,0.6), 0 0 10px var(--node-color);
+  opacity:0; pointer-events:none;
+  transition:opacity .18s ease, transform .18s ease;
+  z-index:30;
+}
+.node.tier2 .tooltip{ bottom:auto; top:calc(100% + 10px); }
+.node:hover .tooltip, .node:focus-visible .tooltip{
+  opacity:1; transform:translateX(-50%) translateY(0);
+}
+.tooltip .t-head{
+  color:var(--node-color); font-weight:bold; letter-spacing:1px;
+  display:block; margin-bottom:4px; font-size:10px;
+}
+.tooltip .t-link{
+  display:block; margin-top:6px; color:var(--acid); font-size:10px; letter-spacing:1px;
+}
+
+/* unlocked mark */
+.node.unlocked{ border-color:var(--node-color); }
+.node.unlocked::after{
+  content:'✓'; position:absolute; top:-7px; right:-7px;
+  width:16px; height:16px; border-radius:50%;
+  background:var(--node-color); color:#03080a;
+  font-size:10px; font-weight:bold;
+  display:flex; align-items:center; justify-content:center;
+  box-shadow:0 0 8px var(--node-color);
+}
+
+/* hacking state on the node itself */
+.node.hacking{
+  animation:nodeGlitch .12s steps(2) infinite;
+}
+@keyframes nodeGlitch{
+  0%{ transform:translate(0,0); filter:none; }
+  50%{ transform:translate(1px,-1px); filter:hue-rotate(40deg); }
+  100%{ transform:translate(-1px,1px); filter:none; }
+}
+
+/* ---------- hack overlay ---------- */
+#hack-overlay{
+  position:fixed; inset:0; z-index:100;
+  background:rgba(2,4,6,0.94);
+  display:flex; align-items:center; justify-content:center;
+  opacity:0; pointer-events:none;
+  transition:opacity .15s ease;
+}
+#hack-overlay.active{ opacity:1; pointer-events:all; }
+.hack-box{
+  width:min(520px,86vw);
+  border:1px solid var(--cyan);
+  background:rgba(6,12,18,0.9);
+  padding:22px 24px;
+  box-shadow:0 0 30px rgba(0,255,242,0.35);
+  clip-path:polygon(16px 0,100% 0,100% calc(100% - 16px),calc(100% - 16px) 100%,0 100%,0 16px);
+}
+.hack-box .h-title{
+  font-family:'Orbitron',sans-serif; font-weight:700; letter-spacing:2px;
+  color:var(--cyan); font-size:14px; margin-bottom:14px;
+}
+.hack-line{
+  font-size:12.5px; color:var(--text-bright); line-height:1.9;
+  white-space:pre; opacity:0;
+}
+.hack-line.show{ opacity:1; }
+.hack-bar{
+  margin-top:14px; height:6px; width:100%;
+  background:rgba(255,255,255,0.08);
+  border:1px solid rgba(0,255,242,0.4);
+  overflow:hidden;
+}
+.hack-bar-fill{
+  height:100%; width:0%;
+  background:linear-gradient(90deg,var(--cyan),var(--magenta));
+  box-shadow:0 0 8px var(--cyan);
+  transition:width .25s linear;
+}
+
+.sr-only{
+  position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0);
+}
+
+@media (prefers-reduced-motion: reduce){
+  *{animation-duration:0.001ms !important; animation-iteration-count:1 !important; transition-duration:0.001ms !important;}
+}
+</style>
+</head>
+<body>
+
+<div class="bg-layer bg-grid"></div>
+<div class="bg-layer bg-vignette"></div>
+<div class="bg-layer bg-scan"></div>
+<div class="bg-layer" style="overflow:hidden;"><div class="bg-scanbar"></div></div>
+
+<div class="hud">
+  <div class="hud-title" data-text="KAIZEN.2026 // ÁRBOL DE HABILIDADES">KAIZEN.2026 // ÁRBOL DE HABILIDADES</div>
+  <div class="hud-sub">Red neural de aprendizaje &nbsp;·&nbsp; Pasa el cursor para <b>escanear</b> un nodo &nbsp;·&nbsp; Clic para <b>acceder</b></div>
+  <div class="hud-status" id="hudStatus">&gt; RED ACTIVA <span class="blink">_</span></div>
+</div>
+
+<div class="viewport" id="viewport">
+  <div id="tree-canvas"></div>
+</div>
+
+<div id="hack-overlay">
+  <div class="hack-box">
+    <div class="h-title" id="hackTitle">&gt; PROTOCOLO DE ACCESO</div>
+    <div class="hack-line" id="hl1">&gt; INICIANDO CONEXIÓN CIFRADA...</div>
+    <div class="hack-line" id="hl2">&gt; DESENCRIPTANDO NODO...</div>
+    <div class="hack-line" id="hl3">&gt; CONEXIÓN ESTABLECIDA. REDIRIGIENDO...</div>
+    <div class="hack-bar"><div class="hack-bar-fill" id="hackBarFill"></div></div>
+  </div>
+</div>
+
+<script>
+/* ================= DATA ================= */
+const COLORS = ['cyan','magenta','acid'];
+
+const branches = [
+  {
+    code:'SPK', label:'SPEAKING',
+    url:'https://sites.google.com/view/kaizen2026/speaking?authuser=0',
+    desc:'Sintetiza tu voz al ritmo de la red.',
+    children:[
+      {code:'SPK.01', label:'Phrases Express', url:'https://sites.google.com/view/kaizen2026/speaking/phrases-express?authuser=0', desc:'Descarga rápida de frases de uso inmediato.'},
+      {code:'SPK.02', label:'Shadowing', url:'https://sites.google.com/view/kaizen2026/speaking/shadowing?authuser=0', desc:'Clona el patrón de audio en tiempo real.'},
+      {code:'SPK.03', label:'Recordings', url:'https://sites.google.com/view/kaizen2026/speaking/recordings?authuser=0', desc:'Archivo de grabaciones para análisis de voz.'},
+      {code:'SPK.04', label:'Words Pronunciations', url:'https://sites.google.com/view/kaizen2026/speaking/words-pronunciations?authuser=0', desc:'Calibración fonética palabra por palabra.'},
+      {code:'SPK.05', label:'Karaoke', url:'https://sites.google.com/view/kaizen2026/speaking/karaoke?authuser=0', desc:'Módulo de entrenamiento rítmico-vocal.'},
+    ]
+  },
+  {
+    code:'GRM', label:'GRAMMAR',
+    url:'https://sites.google.com/view/kaizen2026/grammar?authuser=0',
+    desc:'Reescribe las reglas del sistema.',
+    children:[
+      {code:'GRM.01', label:'Grammar Express', url:'https://sites.google.com/view/kaizen2026/grammar/grammar-express?authuser=0', desc:'Protocolo acelerado de estructuras gramaticales.'},
+    ]
+  },
+  {
+    code:'LSN', label:'LISTENING',
+    url:'https://sites.google.com/view/kaizen2026/grammar/grammar-express?authuser=0',
+    desc:'Decodifica señales de audio entrante.',
+    children:[]
+  },
+  {
+    code:'WRT', label:'WRITING',
+    url:'https://sites.google.com/view/kaizen2026/writing?authuser=0',
+    desc:'Compila texto desde tu terminal mental.',
+    children:[]
+  },
+  {
+    code:'TRN', label:'TRANSLATE',
+    url:'https://sites.google.com/view/kaizen2026/translate?authuser=0',
+    desc:'Puente entre lenguajes e ideas.',
+    children:[
+      {code:'TRN.01', label:'Psychology of Success', url:'https://sites.google.com/view/kaizen2026/translate/psychology-of-success?authuser=0', desc:'Algoritmos mentales para el éxito.'},
+      {code:'TRN.02', label:'Cyberpunk 2077 Script', url:'https://sites.google.com/view/kaizen2026/translate/cyberpunk-2077-script?authuser=0', desc:'Traducción del guion de Night City.'},
+    ]
+  },
+  {
+    code:'JOB', label:'JOB INTERVIEW',
+    url:'https://sites.google.com/view/kaizen2026/job-interview?authuser=0',
+    desc:'Simulacro de entrevista corporativa.',
+    children:[]
+  },
+  {
+    code:'VER', label:'VERSANT TEST',
+    url:'https://sites.google.com/view/kaizen2026/versant-test?authuser=0',
+    desc:'Escaneo de fluidez en tiempo real.',
+    children:[]
+  },
+  {
+    code:'TOE', label:'TOEFL',
+    url:'https://sites.google.com/view/kaizen2026/toelf?authuser=0',
+    desc:'Certificación de acceso a la red global.',
+    children:[]
+  },
+];
+
+/* ================= LAYOUT ================= */
+const SLOT_W = 190, MARGIN_X = 60;
+const ROOT_Y = 60, BUS1_Y = 150, TIER1_Y = 230, BUS2_Y = 320, TIER2_Y = 410;
+const CANVAS_H = TIER2_Y + 90;
+
+let cursorX = MARGIN_X;
+const layout = branches.map((b, i) => {
+  const slots = Math.max(1, b.children.length);
+  const width = slots * SLOT_W;
+  const centerX = cursorX + width / 2;
+  const childXs = b.children.map((c, j) => cursorX + SLOT_W * j + SLOT_W / 2);
+  cursorX += width;
+  return { ...b, color: COLORS[i % 3], x: centerX, y: TIER1_Y, children: b.children.map((c, j) => ({ ...c, x: childXs[j], y: TIER2_Y })) };
+});
+const CANVAS_W = cursorX + MARGIN_X;
+const ROOT_X = CANVAS_W / 2;
+
+/* ================= RENDER ================= */
+const canvas = document.getElementById('tree-canvas');
+canvas.style.width = CANVAS_W + 'px';
+canvas.style.height = CANVAS_H + 'px';
+
+let svg = `<svg width="${CANVAS_W}" height="${CANVAS_H}" style="position:absolute;top:0;left:0;z-index:1;overflow:visible;">`;
+
+function busSegments(x1, y1, targets, busY) {
+  const segs = [`M ${x1} ${y1} L ${x1} ${busY}`];
+  if (targets.length > 1) {
+    const xs = targets.map(t => t.x).concat([x1]);
+    segs.push(`M ${Math.min(...xs)} ${busY} L ${Math.max(...xs)} ${busY}`);
+  }
+  targets.forEach(t => segs.push(`M ${t.x} ${busY} L ${t.x} ${t.y}`));
+  return segs;
+}
+
+// root -> tier1
+const rootBottom = ROOT_Y + 32;
+busSegments(ROOT_X, rootBottom, layout.map(b => ({ x: b.x, y: TIER1_Y - 22 })), BUS1_Y).forEach(d => {
+  svg += `<path class="circuit-line" d="${d}" style="--line-color:var(--cyan)"/>`;
+  svg += `<path class="circuit-flow" d="${d}" style="--line-color:var(--cyan)"/>`;
+});
+layout.forEach(b => {
+  svg += `<circle class="via" cx="${b.x}" cy="${BUS1_Y}" r="3.5" style="--line-color:var(--${b.color})"/>`;
+});
+svg += `<circle class="via-core" cx="${ROOT_X}" cy="${rootBottom}" r="4" style="--line-color:var(--cyan)"/>`;
+
+// tier1 -> tier2 (per branch with children)
+layout.forEach(b => {
+  if (b.children.length === 0) return;
+  const from = { x: b.x, y: TIER1_Y + 20 };
+  const targets = b.children.map(c => ({ x: c.x, y: c.y - 18 }));
+  busSegments(from.x, from.y, targets, BUS2_Y).forEach(d => {
+    svg += `<path class="circuit-line" d="${d}" style="--line-color:var(--${b.color})"/>`;
+    svg += `<path class="circuit-flow" d="${d}" style="--line-color:var(--${b.color})"/>`;
+  });
+  b.children.forEach(c => {
+    svg += `<circle class="via" cx="${c.x}" cy="${BUS2_Y}" r="3" style="--line-color:var(--${b.color})"/>`;
+  });
+});
+
+svg += `</svg>`;
+canvas.insertAdjacentHTML('beforeend', svg);
+
+// ROOT node
+const rootHTML = `
+  <div class="node root" style="left:${ROOT_X - 110}px; top:${ROOT_Y - 32}px; width:220px; height:64px;" tabindex="0">
+    <span class="tag" style="color:var(--cyan)">CORE</span>
+    <span class="label">KAIZEN.2026</span>
+    <div class="sweep"></div>
+  </div>`;
+canvas.insertAdjacentHTML('beforeend', rootHTML);
+
+function nodeHTML(n, tier, colorClass) {
+  const w = tier === 1 ? 172 : 158;
+  const h = tier === 1 ? 58 : 50;
+  return `
+  <button class="node tier${tier} color-${colorClass}"
+    style="left:${n.x - w / 2}px; top:${n.y - h / 2}px; width:${w}px; height:${h}px;"
+    data-url="${n.url}" data-label="${n.label}">
+    <span class="tag">${n.code}</span>
+    <span class="label">${n.label}</span>
+    <div class="sweep"></div>
+    <div class="tooltip">
+      <span class="t-head">// ${n.code}</span>
+      ${n.desc}
+      <span class="t-link">▶ ENLACE ACTIVO</span>
+    </div>
+  </button>`;
+}
+
+layout.forEach(b => {
+  canvas.insertAdjacentHTML('beforeend', nodeHTML(b, 1, b.color));
+  b.children.forEach(c => {
+    canvas.insertAdjacentHTML('beforeend', nodeHTML(c, 2, b.color));
+  });
+});
+
+/* ================= INTERACTION ================= */
+// center the scroll on load
+const viewport = document.getElementById('viewport');
+requestAnimationFrame(() => {
+  viewport.scrollLeft = (CANVAS_W - viewport.clientWidth) / 2;
+});
+
+// drag to scroll
+let isDown = false, startX, scrollStart;
+viewport.addEventListener('mousedown', e => {
+  isDown = true; viewport.classList.add('dragging');
+  startX = e.pageX; scrollStart = viewport.scrollLeft;
+});
+window.addEventListener('mouseup', () => { isDown = false; viewport.classList.remove('dragging'); });
+window.addEventListener('mousemove', e => {
+  if (!isDown) return;
+  viewport.scrollLeft = scrollStart - (e.pageX - startX);
+});
+
+// hack / unlock sequence
+const overlay = document.getElementById('hack-overlay');
+const hackTitle = document.getElementById('hackTitle');
+const hl1 = document.getElementById('hl1');
+const hl2 = document.getElementById('hl2');
+const hl3 = document.getElementById('hl3');
+const barFill = document.getElementById('hackBarFill');
+let busy = false;
+
+document.querySelectorAll('.node:not(.root)').forEach(node => {
+  node.addEventListener('click', () => activate(node));
+  node.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(node); }
+  });
+});
+
+function activate(node) {
+  if (busy) return;
+  busy = true;
+  const url = node.dataset.url;
+  const label = node.dataset.label;
+
+  node.classList.add('hacking');
+  hackTitle.textContent = `> ACCEDIENDO A: ${label.toUpperCase()}`;
+  [hl1, hl2, hl3].forEach(l => l.classList.remove('show'));
+  barFill.style.width = '0%';
+  overlay.classList.add('active');
+
+  setTimeout(() => hl1.classList.add('show'), 80);
+  setTimeout(() => { barFill.style.width = '40%'; }, 120);
+  setTimeout(() => hl2.classList.add('show'), 420);
+  setTimeout(() => { barFill.style.width = '75%'; }, 460);
+  setTimeout(() => hl3.classList.add('show'), 760);
+  setTimeout(() => { barFill.style.width = '100%'; }, 800);
+
+  setTimeout(() => {
+    window.open(url, '_blank', 'noopener');
+    overlay.classList.remove('active');
+    node.classList.remove('hacking');
+    node.classList.add('unlocked');
+    busy = false;
+  }, 1150);
+}
+</script>
+</body>
+</html>
