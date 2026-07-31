@@ -61,6 +61,10 @@
     <p>Ejemplo: limpiar caché de Brave que ocupa <span class="highlight">25 GB</span> en <code>~/.config/BraveSoftware</code></p>
     <code>rm -rf ~/.config/BraveSoftware/Default/Cache/*</code>
     <code>rm -rf ~/.config/BraveSoftware/Default/Code\ Cache/*</code>
+    <code>pkill acestream → cerrar el proceso antes de limpiar.</code>
+    <code>du -h --max-depth=1 ~/.ACEStream → identificar qué subcarpeta pesa más.</code>
+    <code>rm -rf ~/.ACEStream/.acestream_cache/* → limpiar la caché de streams.</code>
+    <code>du -h --max-depth=1 /home/tavo → verificar el espacio liberado en tu home.</code>
   </div>
 
   <div class="section">
