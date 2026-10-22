@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Script Typing Practice</title>
+<style>
+:root{--bg:#f6f4ef;--sf:#fff;--tx:#1d2330;--mu:#6a7080;--ac:#1f4fd8;--ok:#167a3e;--okb:#e3f4e9;--no:#b3261e;--bd:#dcd8cd;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14171f;--sf:#1e222d;--tx:#eceef4;--mu:#9aa1b4;--ac:#7fa2ff;--ok:#6fd195;--okb:#16301f;--no:#ff8f86;--bd:#323848;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#14171f;--sf:#1e222d;--tx:#eceef4;--mu:#9aa1b4;--ac:#7fa2ff;--ok:#6fd195;--okb:#16301f;--no:#ff8f86;--bd:#323848;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:18px/1.55 Georgia,"Times New Roman",serif}
+main{max-width:720px;margin:0 auto;padding:18px 16px 48px}
+.ui{font-family:system-ui,sans-serif}
+.top{display:flex;gap:8px;align-items:center;margin-bottom:10px}
+select{flex:1;min-width:0;font:14px system-ui,sans-serif;padding:8px;border-radius:8px;border:1px solid var(--bd);background:var(--sf);color:var(--tx)}
+.meta{font:13px system-ui,sans-serif;color:var(--mu);white-space:nowrap}
+.bar{height:6px;background:var(--bd);border-radius:9px;overflow:hidden;margin-bottom:16px}
+.bar i{display:block;height:100%;background:var(--ac)}
+.tag{font:12px system-ui,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--mu)}
+h2{font-size:21px;margin:4px 0 12px}
+#ans{background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:16px;white-space:pre-wrap;min-height:90px}
+#ans.hid{color:var(--mu);font-style:italic;display:flex;align-items:center;justify-content:center;text-align:center}
+textarea{width:100%;margin-top:14px;font:18px/1.5 Georgia,serif;padding:12px;border:2px solid var(--bd);border-radius:12px;background:var(--sf);color:var(--tx);min-height:170px;resize:vertical}
+textarea:focus{outline:0;border-color:var(--ac)}
+#st{font:14px system-ui,sans-serif;margin-top:8px;min-height:22px}
+.okc{color:var(--ok)}.bad{color:var(--no)}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+button{font:600 14px system-ui,sans-serif;border-radius:10px;padding:10px 16px;cursor:pointer;border:1.5px solid var(--ac);background:var(--ac);color:var(--bg)}
+button.g{background:transparent;color:var(--ac)}
+.win{background:var(--okb);color:var(--ok);padding:16px;border-radius:12px;font:600 16px system-ui,sans-serif;text-align:center}
+</style></head><body><main>
+<div class="top"><select id="sel" onchange="go(+this.value)"></select><span class="meta" id="mt"></span></div>
+<div class="bar"><i id="pb"></i></div>
+<div class="tag" id="part"></div><h2 id="ttl"></h2>
+<div id="ans"></div>
+<textarea id="box" placeholder="Click here and type it from memory..." autocomplete="off" autocapitalize="off" spellcheck="false"></textarea>
+<div id="st"></div>
+<div class="row"><button class="g" onclick="reveal()">Show answer</button><button class="g" onclick="go(i-1)">Back</button><button class="g" onclick="go(i+1)">Skip</button></div>
+<script>
+const P1="Part 1: Fixed parts",P2="Part 2: Scenarios",P3="Part 3: Vocabulary";
+const C=[
+[P1,"OPENING (pick one)",`* “Thank you for calling [Brand], my name is [X]. May I have your name, please?”
+* “Thanks for calling [Brand], this is [X] speaking. Who do I have the pleasure of speaking with?”
+* After they answer: “Nice to meet you, [Name]. How can I help you today?” / “What can I do for you today?”`],
+[P1,"REASSURANCE (pick the one that matches the mood)",`Neutral: “Absolutely, I can help with that.” / “I’m glad you called, I’ll take care of this.”
+Worried: “I understand, and I’m going to take care of this for you.”
+Upset: “I’m sorry for the trouble, and I completely understand why you’re frustrated. Let me make this right.”
+Ownership: “I’ll personally follow this through until we have a solution.”`],
+[P1,"BILLING NAME AND ADDRESS",`“To pull up your information, may I have the billing name and billing address on the account?”
+“Thank you. And just to confirm, is that the same address for the delivery?”
+Spelling help: “Could you spell that for me, please?” / “Let me repeat it so I get it right.”`],
+[P1,"PROBING QUESTIONS",`“Just so I understand correctly, you’re calling because...?”
+“When did you place the order?”
+“Could you tell me a bit more about what happened?”`],
+[P1,"RESOLUTION",`“Here’s what I’m going to do for you...”
+“The best solution I can offer is...”
+“I’ve taken care of that. Here’s what happens next...”`],
+[P1,"SERVICE PROMOTION",`“Before I let you go, did you know you can track your orders, see offers, and manage returns on our website and the Gap app?”
+“If you’re not a member yet, our rewards program gives you early access to offers. You can join for free on the website or app.”
+“For next time, the app sends you tracking updates automatically, so you won’t even need to call.”`],
+[P1,"CLOSING",`Recap: “Just to recap, [issue], and [solution], and you’ll [next step].”
+“Is there anything else I can help you with today?”
+“Thank you for calling [Brand], [Name]. Have a wonderful day!”`],
+[P2,"1. Where is my order? (tracking and status)",`Reassurance: “I understand you want to know where your order is. Let me check that right now.”
+Probing: “Do you have the order number?” / “What date did you place it?”
+Resolution: “I see your order is [status]. It shipped on [date] with [carrier], and the estimated delivery is [date]. I can also send the tracking link to your email.”
+Promo hook: “On the app you can see this tracking anytime.”`],
+[P2,"2. Change an order",`Reassurance: “Of course, let me see if we can still make that change.”
+Probing: “What would you like to change: the size, the color, or the address?”
+Resolution: “Good news, your order hasn’t shipped yet, so I can update it for you.” (If it already shipped:) “Unfortunately it already left our warehouse, so I can’t change it, but once you receive it I can help you with a return or exchange.”`],
+[P2,"3. Cancel an order",`Reassurance: “I understand, let me check the status of your order.”
+Probing: “May I ask the reason for the cancellation?”
+Resolution: “I’ve submitted the cancellation. You’ll receive a confirmation email, and the refund will go back to your original payment method in [timeframe] (policy).” (If already shipped:) “Since it’s already on its way, the best option is to return it once it arrives.”`],
+[P2,"4. Didn’t receive it (delivery issue)",`Reassurance: “I’m sorry your order hasn’t arrived. That’s frustrating, and I’ll help you get this solved.”
+Probing: “Does the tracking say delivered?” / “Did you check with neighbors or the front desk?” / “Is the shipping address correct?”
+Resolution: “I’ll open an investigation with the carrier. Once it’s complete, we’ll send you a replacement or a refund, whichever you prefer (policy).”`],
+[P2,"5. Don’t like it (return)",`Reassurance: “No problem at all, we want you to be happy with your purchase.”
+Probing: “Do you still have the tags and the original packaging?” / “Was it bought online or in a store?”
+Resolution: “You can return it by [mail / in store] within [number] days (policy). I’ll email you the return label, and your refund will go to your original payment method.”`],
+[P2,"6. Wrong size (exchange)",`Reassurance: “That happens, and it’s easy to fix.”
+Probing: “What size did you receive, and what size do you need?” / “Would you like the same color?”
+Resolution: “Let me check that the [size] is available. Yes, it is! I’ll set up the exchange and send you a label.”
+(If out of stock:) “That size is out of stock right now. I can refund you, or suggest a similar style.”`],
+[P2,"7. Defective or damaged item",`Reassurance: “I’m very sorry about that. That’s not the quality we want you to receive.”
+Probing: “What exactly is wrong with it?” / “When did you receive it?” / “Could you send us a photo?” (if required)
+Resolution: “I’ll send you a replacement at no cost, or a full refund, whichever you prefer (policy). You don’t need to pay for the return shipping.”`],
+[P2,"8. Offers and discounts",`Reassurance: “Great question, let me find the best offer available for you.”
+Probing: “Are you shopping online or in store?” / “Do you have a promo code you’d like me to try?”
+Resolution: “Right now we have [offer], valid until [date] (verify before saying). I can apply it to your order today.”
+Promo hook: “If you join the email list or the rewards program, you’ll get these offers first.”`],
+[P2,"9. Promo or campaign question",`Reassurance: “I’d be happy to explain how that promotion works.”
+Probing: “Which promotion are you asking about?” / “Do you have the code or the ad?”
+Resolution: “That promotion applies to [items] with a minimum of [amount], and it ends on [date]. It can’t be combined with other offers (policy).”
+(If it doesn’t apply:) “I’m sorry, that one doesn’t apply to this item, but here’s what I can offer instead.”`],
+[P2,"10. Price adjustment (policy)",`Reassurance: “Let me see if you qualify for a price adjustment.”
+Probing: “When did you buy it?” / “What’s the order number?”
+Resolution: “Yes, you’re within the [number]-day window (policy), so I’ll adjust the difference of $[amount] back to your original payment method.”
+(If not eligible:) “Unfortunately that purchase is outside the adjustment window, but I want to be transparent so you know exactly why.”`],
+[P2,"11. Refund status (transaction)",`Reassurance: “I understand you’re waiting for your refund. Let me look at that.”
+Probing: “When was the item returned or the order canceled?” / “Which payment method did you use?”
+Resolution: “I can see the refund of $[amount] was issued on [date]. Banks usually take [timeframe] to show it (policy). If it doesn’t appear by then, call us back and I’ll personally look into it.”`],
+[P2,"12. Loyalty rewards and account",`Reassurance: “Of course, let me check your rewards account.”
+Probing: “Is the account under this email or phone number?” / “What would you like to know: points, tier, or benefits?”
+Resolution: “You currently have [points / status]. You can use your rewards [how]. Your next benefit is [X].”
+Promo hook: “Check your balance anytime in the app.”`],
+[P2,"13. Gift card balance",`Reassurance: “No problem, I can help you check that.”
+Probing: “Do you have the gift card number and the PIN?”
+Resolution: “Your balance is $[amount]. It can be used online and in store.” (Never repeat the full card number aloud.)`],
+[P2,"14. Account security (info and password recovery)",`Reassurance: “I understand, and I’ll help you get back into your account safely.”
+Probing: “What email is on the account?” / “Did you get any alerts about suspicious activity?”
+Resolution: “For your security, I’ll send a password reset link to your email on file. It’s valid for [timeframe]. Please don’t share the link with anyone.”
+Important: Never ask for or say a customer’s password. Follow your verification steps before sharing any account information.`],
+[P3,"Vocabulary options",`Instead of “Wait please”: Simple: “One moment, please.” Smoother: “Let me pull that up for you.”
+Instead of “I don’t know”: Simple: “Let me check that.” Smoother: “That’s a great question, let me find out.”
+Instead of “Sorry”: Simple: “I’m sorry about that.” Smoother: “I sincerely apologize for the inconvenience.”
+Instead of “No, I can’t”: Simple: “Unfortunately, I can’t do that.” Smoother: “What I can do is...”
+Instead of “Okay”: Simple: “Sure.” Smoother: “Absolutely.” / “Of course.”
+Instead of “Problem”: Simple: “Issue” Smoother: “Situation”
+Instead of “Help you”: Simple: “Assist you” Smoother: “Take care of this for you”`],
+[P3,"Phrases that sound confident and show ownership",`“I’ll take care of that for you.”
+“Let me make sure this is resolved before we hang up.”
+“I want to make sure you leave this call happy.”
+“I’ll personally make a note on your account.”`],
+[P3,"Empathy phrases",`“I completely understand.”
+“I can imagine how frustrating that is.”
+“Thank you for your patience.”
+“I appreciate you letting us know.”`]
+];
+const $=s=>document.getElementById(s);
+const norm=s=>s.replace(/[“”„"]/g,"").replace(/[‘’]/g,"'").replace(/…/g,"...").split("\n").map(l=>l.replace(/^\s*[*•-]\s+/,"")).join(" ").replace(/\s+/g," ").trim();
+let i=0,busy=false;
+try{i=Math.min(C.length-1,Math.max(0,+localStorage.getItem("gapType")||0))}catch(e){}
+$("sel").innerHTML=C.map((c,k)=>`<option value="${k}">${k+1}. ${c[1]}</option>`).join("");
+function go(n){if(n<0)n=0;busy=false;if(n>=C.length){win();return}i=n;try{localStorage.setItem("gapType",i)}catch(e){}
+$("sel").value=i;$("part").textContent=C[i][0];$("ttl").textContent=C[i][1];
+$("mt").textContent=(i+1)+" / "+C.length;$("pb").style.width=(i/C.length*100)+"%";
+$("box").value="";$("box").style.display="";$("st").textContent="";show()}
+function show(){const a=$("ans");a.className="";a.textContent=C[i][2]}
+function hide(){const a=$("ans");a.className="hid";a.textContent="Hidden. Type it exactly from memory. If you get stuck, press Show answer."}
+function reveal(){show();$("st").innerHTML="";}
+function win(){$("pb").style.width="100%";$("part").textContent="";$("ttl").textContent="Finished";$("ans").className="";$("ans").innerHTML='<div class="win">You typed every section correctly. Press Restart to go again.</div>';$("box").style.display="none";$("st").innerHTML='<button onclick="go(0)">Restart</button>'}
+$("box").addEventListener("focus",hide);
+$("box").addEventListener("input",()=>{if(busy)return;const t=norm($("box").value),g=norm(C[i][2]);if(!t){$("st").textContent="";return}
+if(t===g){busy=true;$("st").innerHTML='<span class="okc">Correct! Next section...</span>';setTimeout(()=>{go(i+1);if(i<C.length)$("box").focus()},900);return}
+if(g.startsWith(t)){$("st").innerHTML='<span class="okc">On track ('+Math.round(t.length/g.length*100)+'%)</span>';return}
+let k=0;while(k<t.length&&t[k]===g[k])k++;
+$("st").innerHTML='<span class="bad">Mistake after: “…'+t.slice(Math.max(0,k-24),k).replace(/[<>&]/g,"")+'”. Fix it or press Show answer.</span>'});
+go(i);
+</script></main></body></html>
